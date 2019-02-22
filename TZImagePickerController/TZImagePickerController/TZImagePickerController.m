@@ -4,7 +4,7 @@
 //
 //  Created by 谭真 on 15/12/24.
 //  Copyright © 2015年 谭真. All rights reserved.
-//  version 3.1.9 - 2019.01.14
+//  version 2.2.5 - 2018.08.10
 //  更多信息，请前往项目的github地址：https://github.com/banchichen/TZImagePickerController
 
 #import "TZImagePickerController.h"
@@ -14,6 +14,7 @@
 #import "TZAssetCell.h"
 #import "UIView+Layout.h"
 #import "TZImageManager.h"
+#import <sys/utsname.h>
 
 @interface TZImagePickerController () {
     NSTimer *_timer;
@@ -59,15 +60,19 @@
     self.oKButtonTitleColorNormal   = [UIColor colorWithRed:(83/255.0) green:(179/255.0) blue:(17/255.0) alpha:1.0];
     self.oKButtonTitleColorDisabled = [UIColor colorWithRed:(83/255.0) green:(179/255.0) blue:(17/255.0) alpha:0.5];
     
-    self.navigationBar.barTintColor = [UIColor colorWithRed:(34/255.0) green:(34/255.0)  blue:(34/255.0) alpha:1.0];
-    self.navigationBar.tintColor = [UIColor whiteColor];
-    self.automaticallyAdjustsScrollViewInsets = NO;
-    if (self.needShowStatusBar) [UIApplication sharedApplication].statusBarHidden = NO;
+    if (iOS7Later) {
+        self.navigationBar.barTintColor = [UIColor colorWithRed:(34/255.0) green:(34/255.0)  blue:(34/255.0) alpha:1.0];
+        self.navigationBar.tintColor = [UIColor whiteColor];
+        self.automaticallyAdjustsScrollViewInsets = NO;
+        if (self.needShowStatusBar) [UIApplication sharedApplication].statusBarHidden = NO;
+    }
 }
 
 - (void)setNaviBgColor:(UIColor *)naviBgColor {
     _naviBgColor = naviBgColor;
-    self.navigationBar.barTintColor = naviBgColor;
+    if (iOS7Later) {
+        self.navigationBar.barTintColor = naviBgColor;
+    }
 }
 
 - (void)setNaviTitleColor:(UIColor *)naviTitleColor {
@@ -105,9 +110,9 @@
     _isStatusBarDefault = isStatusBarDefault;
     
     if (isStatusBarDefault) {
-        self.statusBarStyle = UIStatusBarStyleDefault;
+        self.statusBarStyle = iOS7Later ? UIStatusBarStyleDefault : UIStatusBarStyleBlackOpaque;
     } else {
-        self.statusBarStyle = UIStatusBarStyleLightContent;
+        self.statusBarStyle = iOS7Later ? UIStatusBarStyleLightContent : UIStatusBarStyleBlackOpaque;
     }
 }
 
@@ -187,14 +192,16 @@
             _tipLabel.text = tipText;
             [self.view addSubview:_tipLabel];
             
-            _settingBtn = [UIButton buttonWithType:UIButtonTypeSystem];
-            [_settingBtn setTitle:self.settingBtnTitleStr forState:UIControlStateNormal];
-            _settingBtn.frame = CGRectMake(0, 180, self.view.tz_width, 44);
-            _settingBtn.titleLabel.font = [UIFont systemFontOfSize:18];
-            [_settingBtn addTarget:self action:@selector(settingBtnClick) forControlEvents:UIControlEventTouchUpInside];
-            [self.view addSubview:_settingBtn];
+            if (iOS8Later) {
+                _settingBtn = [UIButton buttonWithType:UIButtonTypeSystem];
+                [_settingBtn setTitle:self.settingBtnTitleStr forState:UIControlStateNormal];
+                _settingBtn.frame = CGRectMake(0, 180, self.view.tz_width, 44);
+                _settingBtn.titleLabel.font = [UIFont systemFontOfSize:18];
+                [_settingBtn addTarget:self action:@selector(settingBtnClick) forControlEvents:UIControlEventTouchUpInside];
+                [self.view addSubview:_settingBtn];
+            }
             
-            if ([PHPhotoLibrary authorizationStatus] == 0) {
+            if ([TZImageManager authorizationStatus] == 0) {
                 _timer = [NSTimer scheduledTimerWithTimeInterval:0.2 target:self selector:@selector(observeAuthrizationStatusChange) userInfo:nil repeats:NO];
             }
         } else {
@@ -230,12 +237,11 @@
 }
 
 /// This init method for crop photo / 用这个初始化方法以裁剪图片
-- (instancetype)initCropTypeWithAsset:(PHAsset *)asset photo:(UIImage *)photo completion:(void (^)(UIImage *cropImage,PHAsset *asset))completion {
+- (instancetype)initCropTypeWithAsset:(id)asset photo:(UIImage *)photo completion:(void (^)(UIImage *cropImage,id asset))completion {
     TZPhotoPreviewController *previewVc = [[TZPhotoPreviewController alloc] init];
     self = [super initWithRootViewController:previewVc];
     if (self) {
         self.maxImagesCount = 1;
-        self.allowPickingImage = YES;
         self.allowCrop = YES;
         self.selectedAssets = [NSMutableArray arrayWithArray:@[asset]];
         [self configDefaultSetting];
@@ -265,9 +271,7 @@
     self.barItemTextFont = [UIFont systemFontOfSize:15];
     self.barItemTextColor = [UIColor whiteColor];
     self.allowPreview = YES;
-    // 2.2.26版本，不主动缩放图片，降低内存占用
-    self.notScaleImage = YES;
-    self.needFixComposition = NO;
+    self.notScaleImage = NO;
     self.statusBarStyle = UIStatusBarStyleLightContent;
     self.cannotSelectLayerColor = [[UIColor whiteColor] colorWithAlphaComponent:0.8];
     self.allowCameraLocation = YES;
@@ -289,39 +293,45 @@
     self.photoOriginSelImageName = @"photo_original_sel";
 }
 
+-(void)configureWithImages:(NSDictionary*)images
+{
+    _photoOriginSelImage = [images objectForKey:@"photo_original_sel"];
+    _photoSelImage = [images objectForKey:@"photo_sel_photoPickerVc"];
+}
+
 - (void)setTakePictureImageName:(NSString *)takePictureImageName {
     _takePictureImageName = takePictureImageName;
-    _takePictureImage = [UIImage tz_imageNamedFromMyBundle:takePictureImageName];
+    _takePictureImage = [UIImage imageNamedFromMyBundle:takePictureImageName];
 }
 
 - (void)setPhotoSelImageName:(NSString *)photoSelImageName {
     _photoSelImageName = photoSelImageName;
-    _photoSelImage = [UIImage tz_imageNamedFromMyBundle:photoSelImageName];
+    _photoSelImage = [UIImage imageNamedFromMyBundle:photoSelImageName];
 }
 
 - (void)setPhotoDefImageName:(NSString *)photoDefImageName {
     _photoDefImageName = photoDefImageName;
-    _photoDefImage = [UIImage tz_imageNamedFromMyBundle:photoDefImageName];
+    _photoDefImage = [UIImage imageNamedFromMyBundle:photoDefImageName];
 }
 
 - (void)setPhotoNumberIconImageName:(NSString *)photoNumberIconImageName {
     _photoNumberIconImageName = photoNumberIconImageName;
-    _photoNumberIconImage = [UIImage tz_imageNamedFromMyBundle:photoNumberIconImageName];
+    _photoNumberIconImage = [UIImage imageNamedFromMyBundle:photoNumberIconImageName];
 }
 
 - (void)setPhotoPreviewOriginDefImageName:(NSString *)photoPreviewOriginDefImageName {
     _photoPreviewOriginDefImageName = photoPreviewOriginDefImageName;
-    _photoPreviewOriginDefImage = [UIImage tz_imageNamedFromMyBundle:photoPreviewOriginDefImageName];
+    _photoPreviewOriginDefImage = [UIImage imageNamedFromMyBundle:photoPreviewOriginDefImageName];
 }
 
 - (void)setPhotoOriginDefImageName:(NSString *)photoOriginDefImageName {
     _photoOriginDefImageName = photoOriginDefImageName;
-    _photoOriginDefImage = [UIImage tz_imageNamedFromMyBundle:photoOriginDefImageName];
+    _photoOriginDefImage = [UIImage imageNamedFromMyBundle:photoOriginDefImageName];
 }
 
 - (void)setPhotoOriginSelImageName:(NSString *)photoOriginSelImageName {
     _photoOriginSelImageName = photoOriginSelImageName;
-    _photoOriginSelImage = [UIImage tz_imageNamedFromMyBundle:photoOriginSelImageName];
+    _photoOriginSelImage = [UIImage imageNamedFromMyBundle:photoOriginSelImageName];
 }
 
 - (void)setIconThemeColor:(UIColor *)iconThemeColor {
@@ -356,15 +366,10 @@
     [TZImagePickerConfig sharedInstance].notScaleImage = notScaleImage;
 }
 
-- (void)setNeedFixComposition:(BOOL)needFixComposition {
-    _needFixComposition = needFixComposition;
-    [TZImagePickerConfig sharedInstance].needFixComposition = needFixComposition;
-}
-
 - (void)observeAuthrizationStatusChange {
     [_timer invalidate];
     _timer = nil;
-    if ([PHPhotoLibrary authorizationStatus] == 0) {
+    if ([TZImageManager authorizationStatus] == 0) {
         _timer = [NSTimer scheduledTimerWithTimeInterval:0.2 target:self selector:@selector(observeAuthrizationStatusChange) userInfo:nil repeats:NO];
     }
     
@@ -396,15 +401,27 @@
     }
 }
 
-- (UIAlertController *)showAlertWithTitle:(NSString *)title {
-    UIAlertController *alertController = [UIAlertController alertControllerWithTitle:title message:nil preferredStyle:UIAlertControllerStyleAlert];
-    [alertController addAction:[UIAlertAction actionWithTitle:[NSBundle tz_localizedStringForKey:@"OK"] style:UIAlertActionStyleDefault handler:nil]];
-    [self presentViewController:alertController animated:YES completion:nil];
-    return alertController;
+- (id)showAlertWithTitle:(NSString *)title {
+    if (iOS8Later) {
+        UIAlertController *alertController = [UIAlertController alertControllerWithTitle:title message:nil preferredStyle:UIAlertControllerStyleAlert];
+        [alertController addAction:[UIAlertAction actionWithTitle:[NSBundle tz_localizedStringForKey:@"OK"] style:UIAlertActionStyleDefault handler:nil]];
+        [self presentViewController:alertController animated:YES completion:nil];
+        return alertController;
+    } else {
+        UIAlertView *alertView = [[UIAlertView alloc] initWithTitle:title message:nil delegate:nil cancelButtonTitle:[NSBundle tz_localizedStringForKey:@"OK"] otherButtonTitles:nil, nil];
+        [alertView show];
+        return alertView;
+    }
 }
 
-- (void)hideAlertView:(UIAlertController *)alertView {
-    [alertView dismissViewControllerAnimated:YES completion:nil];
+- (void)hideAlertView:(id)alertView {
+    if ([alertView isKindOfClass:[UIAlertController class]]) {
+        UIAlertController *alertC = alertView;
+        [alertC dismissViewControllerAnimated:YES completion:nil];
+    } else if ([alertView isKindOfClass:[UIAlertView class]]) {
+        UIAlertView *alertV = alertView;
+        [alertV dismissWithClickedButtonIndex:0 animated:YES];
+    }
     alertView = nil;
 }
 
@@ -432,14 +449,7 @@
         [_progressHUD addSubview:_HUDContainer];
     }
     [_HUDIndicatorView startAnimating];
-    UIWindow *applicationWindow;
-    if ([[[UIApplication sharedApplication] delegate] respondsToSelector:@selector(window)]) {
-        applicationWindow = [[[UIApplication sharedApplication] delegate] window];
-    } else {
-        applicationWindow = [[UIApplication sharedApplication] keyWindow];
-    }
-    [applicationWindow addSubview:_progressHUD];
-    [self.view setNeedsLayout];
+    [[UIApplication sharedApplication].keyWindow addSubview:_progressHUD];
     
     // if over time, dismiss HUD automatic
     __weak typeof(self) weakSelf = self;
@@ -553,7 +563,7 @@
     _selectedAssets = selectedAssets;
     _selectedModels = [NSMutableArray array];
     _selectedAssetIds = [NSMutableArray array];
-    for (PHAsset *asset in selectedAssets) {
+    for (id asset in selectedAssets) {
         TZAssetModel *model = [TZAssetModel modelWithAsset:asset type:[[TZImageManager manager] getAssetType:asset]];
         model.isSelected = YES;
         [self addSelectedModel:model];
@@ -598,7 +608,9 @@
 }
 
 - (void)pushViewController:(UIViewController *)viewController animated:(BOOL)animated {
-    viewController.automaticallyAdjustsScrollViewInsets = NO;
+    if (iOS7Later) {
+        viewController.automaticallyAdjustsScrollViewInsets = NO;
+    }
     [super pushViewController:viewController animated:animated];
 }
 
@@ -608,12 +620,14 @@
 
 - (void)addSelectedModel:(TZAssetModel *)model {
     [_selectedModels addObject:model];
-    [_selectedAssetIds addObject:model.asset.localIdentifier];
+    NSString *assetId = [[TZImageManager manager] getAssetIdentifier:model.asset];
+    [_selectedAssetIds addObject:assetId];
 }
 
 - (void)removeSelectedModel:(TZAssetModel *)model {
     [_selectedModels removeObject:model];
-    [_selectedAssetIds removeObject:model.asset.localIdentifier];
+    NSString *assetId = [[TZImageManager manager] getAssetIdentifier:model.asset];
+    [_selectedAssetIds removeObject:assetId];
 }
 
 - (UIImage *)createImageWithColor:(UIColor *)color size:(CGSize)size radius:(CGFloat)radius {
@@ -635,11 +649,7 @@
 #pragma mark - UIContentContainer
 
 - (void)viewWillTransitionToSize:(CGSize)size withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator {
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.02 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        if (![UIApplication sharedApplication].statusBarHidden) {
-            if (self.needShowStatusBar) [UIApplication sharedApplication].statusBarHidden = NO;
-        }
-    });
+    [self willInterfaceOrientionChange];
     if (size.width > size.height) {
         _cropRect = _cropRectLandscape;
     } else {
@@ -647,16 +657,31 @@
     }
 }
 
+- (void)willAnimateRotationToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation duration:(NSTimeInterval)duration {
+    [self willInterfaceOrientionChange];
+    if (toInterfaceOrientation >= 3) {
+        _cropRect = _cropRectLandscape;
+    } else {
+        _cropRect = _cropRectPortrait;
+    }
+}
+
+- (void)willInterfaceOrientionChange {
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.02 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        if (![UIApplication sharedApplication].statusBarHidden) {
+            if (iOS7Later && self.needShowStatusBar) [UIApplication sharedApplication].statusBarHidden = NO;
+        }
+    });
+}
+
 #pragma mark - Layout
 
 - (void)viewDidLayoutSubviews {
     [super viewDidLayoutSubviews];
     
-    CGFloat progressHUDY = CGRectGetMaxY(self.navigationBar.frame);
-    _progressHUD.frame = CGRectMake(0, progressHUDY, self.view.tz_width, self.view.tz_height - progressHUDY);
-    _HUDContainer.frame = CGRectMake((self.view.tz_width - 120) / 2, (_progressHUD.tz_height - 90 - progressHUDY) / 2, 120, 90);
+    _HUDContainer.frame = CGRectMake((self.view.tz_width - 120) / 2, (self.view.tz_height - 90) / 2, 120, 90);
     _HUDIndicatorView.frame = CGRectMake(45, 15, 30, 30);
-    _HUDLabel.frame = CGRectMake(0,40, 120, 50);
+    _HUDLabel.frame = CGRectMake(0,40, 120, 50);    
 }
 
 #pragma mark - Public
@@ -762,14 +787,6 @@
     // NSLog(@"%@ dealloc",NSStringFromClass(self.class));
 }
 
-- (UIStatusBarStyle)preferredStatusBarStyle {
-    TZImagePickerController *tzImagePicker = (TZImagePickerController *)self.navigationController;
-    if (tzImagePicker && [tzImagePicker isKindOfClass:[TZImagePickerController class]]) {
-        return tzImagePicker.statusBarStyle;
-    }
-    return [super preferredStatusBarStyle];
-}
-
 #pragma mark - Layout
 
 - (void)viewDidLayoutSubviews {
@@ -781,7 +798,7 @@
     BOOL isStatusBarHidden = [UIApplication sharedApplication].isStatusBarHidden;
     if (self.navigationController.navigationBar.isTranslucent) {
         top = naviBarHeight;
-        if (!isStatusBarHidden) top += [TZCommonTools tz_statusBarHeight];
+        if (iOS7Later && !isStatusBarHidden) top += [TZCommonTools tz_statusBarHeight];
         tableViewHeight = self.view.tz_height - top;
     } else {
         tableViewHeight = self.view.tz_height;
@@ -822,7 +839,7 @@
 
 @implementation UIImage (MyBundle)
 
-+ (UIImage *)tz_imageNamedFromMyBundle:(NSString *)name {
++ (UIImage *)imageNamedFromMyBundle:(NSString *)name {
     NSBundle *imageBundle = [NSBundle tz_imagePickerBundle];
     name = [name stringByAppendingString:@"@2x"];
     NSString *imagePath = [imageBundle pathForResource:name ofType:@"png"];
@@ -838,13 +855,47 @@
 @end
 
 
+@implementation NSString (TzExtension)
+
+- (BOOL)tz_containsString:(NSString *)string {
+    if (iOS8Later) {
+        return [self containsString:string];
+    } else {
+        NSRange range = [self rangeOfString:string];
+        return range.location != NSNotFound;
+    }
+}
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+- (CGSize)tz_calculateSizeWithAttributes:(NSDictionary *)attributes maxSize:(CGSize)maxSize {
+    CGSize size;
+    if (iOS7Later) {
+        size = [self boundingRectWithSize:maxSize options:NSStringDrawingUsesFontLeading attributes:attributes context:nil].size;
+    } else {
+        size = [self sizeWithFont:attributes[NSFontAttributeName] constrainedToSize:maxSize];
+    }
+    return size;
+}
+#pragma clang diagnostic pop
+
+@end
+
+
 @implementation TZCommonTools
 
 + (BOOL)tz_isIPhoneX {
-    return (CGSizeEqualToSize([UIScreen mainScreen].bounds.size, CGSizeMake(375, 812)) ||
-            CGSizeEqualToSize([UIScreen mainScreen].bounds.size, CGSizeMake(812, 375)) ||
-            CGSizeEqualToSize([UIScreen mainScreen].bounds.size, CGSizeMake(414, 896)) ||
-            CGSizeEqualToSize([UIScreen mainScreen].bounds.size, CGSizeMake(896, 414)));
+    struct utsname systemInfo;
+    uname(&systemInfo);
+    NSString *platform = [NSString stringWithCString:systemInfo.machine encoding:NSASCIIStringEncoding];
+    if ([platform isEqualToString:@"i386"] || [platform isEqualToString:@"x86_64"]) {
+        // 模拟器下采用屏幕的高度来判断
+        return (CGSizeEqualToSize([UIScreen mainScreen].bounds.size, CGSizeMake(375, 812)) ||
+                CGSizeEqualToSize([UIScreen mainScreen].bounds.size, CGSizeMake(812, 375)));
+    }
+    // iPhone10,6是美版iPhoneX 感谢hegelsu指出：https://github.com/banchichen/TZImagePickerController/issues/635
+    BOOL isIPhoneX = [platform isEqualToString:@"iPhone10,3"] || [platform isEqualToString:@"iPhone10,6"];
+    return isIPhoneX;
 }
 
 + (CGFloat)tz_statusBarHeight {
@@ -863,21 +914,6 @@
     }
     return infoDict ? infoDict : @{};
 }
-
-+ (BOOL)tz_isRightToLeftLayout {
-    if (@available(iOS 9.0, *)) {
-        if ([UIView userInterfaceLayoutDirectionForSemanticContentAttribute:UISemanticContentAttributeUnspecified] == UIUserInterfaceLayoutDirectionRightToLeft) {
-            return YES;
-        }
-    } else {
-        NSString *preferredLanguage = [NSLocale preferredLanguages].firstObject;
-        if ([preferredLanguage hasPrefix:@"ar-"]) {
-            return YES;
-        }
-    }
-    return NO;
-}
-
 @end
 
 
@@ -890,7 +926,7 @@
         if (config == nil) {
             config = [[TZImagePickerConfig alloc] init];
             config.preferredLanguage = nil;
-            config.gifPreviewMaxImagesCount = 50;
+            config.gifPreviewMaxImagesCount = 200;
         }
     });
     return config;

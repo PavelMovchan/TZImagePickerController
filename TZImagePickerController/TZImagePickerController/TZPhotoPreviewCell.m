@@ -178,11 +178,7 @@
                 if (!isDegraded) {
                     self.isRequestingGIF = NO;
                     self.progressView.hidden = YES;
-                    if ([TZImagePickerConfig sharedInstance].gifImagePlayBlock) {
-                        [TZImagePickerConfig sharedInstance].gifImagePlayBlock(self, self.imageView, data, info);
-                    } else {
-                        self.imageView.image = [UIImage sd_tz_animatedGIFWithData:data];
-                    }
+                    self.imageView.image = [UIImage sd_tz_animatedGIFWithData:data];
                     [self resizeSubviews];
                 }
             }];
@@ -192,7 +188,7 @@
     }
 }
 
-- (void)setAsset:(PHAsset *)asset {
+- (void)setAsset:(id)asset {
     if (_asset && self.imageRequestID) {
         [[PHImageManager defaultManager] cancelImageRequest:self.imageRequestID];
     }
@@ -224,8 +220,6 @@
             self.imageRequestID = 0;
         }
     } networkAccessAllowed:YES];
-    
-    [self configMaximumZoomScale];
 }
 
 - (void)recoverSubviews {
@@ -259,8 +253,9 @@
     [self refreshScrollViewContentSize];
 }
 
-- (void)configMaximumZoomScale {
-    _scrollView.maximumZoomScale = _allowCrop ? 4.0 : 2.5;
+- (void)setAllowCrop:(BOOL)allowCrop {
+    _allowCrop = allowCrop;
+    _scrollView.maximumZoomScale = allowCrop ? 4.0 : 2.5;
     
     if ([self.asset isKindOfClass:[PHAsset class]]) {
         PHAsset *phAsset = (PHAsset *)self.asset;
@@ -355,7 +350,7 @@
 @implementation TZVideoPreviewCell
 
 - (void)configSubviews {
-    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(appWillResignActiveNotification) name:UIApplicationWillResignActiveNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(pausePlayerAndShowNaviBar) name:UIApplicationWillResignActiveNotification object:nil];
 }
 
 - (void)configPlayButton {
@@ -363,19 +358,14 @@
         [_playButton removeFromSuperview];
     }
     _playButton = [UIButton buttonWithType:UIButtonTypeCustom];
-    [_playButton setImage:[UIImage tz_imageNamedFromMyBundle:@"MMVideoPreviewPlay"] forState:UIControlStateNormal];
-    [_playButton setImage:[UIImage tz_imageNamedFromMyBundle:@"MMVideoPreviewPlayHL"] forState:UIControlStateHighlighted];
+    [_playButton setImage:[UIImage imageNamedFromMyBundle:@"MMVideoPreviewPlay"] forState:UIControlStateNormal];
+    [_playButton setImage:[UIImage imageNamedFromMyBundle:@"MMVideoPreviewPlayHL"] forState:UIControlStateHighlighted];
     [_playButton addTarget:self action:@selector(playButtonClick) forControlEvents:UIControlEventTouchUpInside];
     [self addSubview:_playButton];
 }
 
 - (void)setModel:(TZAssetModel *)model {
     [super setModel:model];
-    [self configMoviePlayer];
-}
-
-- (void)setVideoURL:(NSURL *)videoURL {
-    _videoURL = videoURL;
     [self configMoviePlayer];
 }
 
@@ -387,29 +377,20 @@
         _player = nil;
     }
     
-    if (self.model && self.model.asset) {
-        [[TZImageManager manager] getPhotoWithAsset:self.model.asset completion:^(UIImage *photo, NSDictionary *info, BOOL isDegraded) {
-            self.cover = photo;
-        }];
-        [[TZImageManager manager] getVideoWithAsset:self.model.asset completion:^(AVPlayerItem *playerItem, NSDictionary *info) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                [self configPlayerWithItem:playerItem];
-            });
-        }];
-    } else {
-        AVPlayerItem *playerItem = [AVPlayerItem playerItemWithURL:self.videoURL];
-        [self configPlayerWithItem:playerItem];
-    }
-}
-
-- (void)configPlayerWithItem:(AVPlayerItem *)playerItem {
-    self.player = [AVPlayer playerWithPlayerItem:playerItem];
-    self.playerLayer = [AVPlayerLayer playerLayerWithPlayer:self.player];
-    self.playerLayer.backgroundColor = [UIColor blackColor].CGColor;
-    self.playerLayer.frame = self.bounds;
-    [self.layer addSublayer:self.playerLayer];
-    [self configPlayButton];
-    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(pausePlayerAndShowNaviBar) name:AVPlayerItemDidPlayToEndTimeNotification object:self.player.currentItem];
+    [[TZImageManager manager] getPhotoWithAsset:self.model.asset completion:^(UIImage *photo, NSDictionary *info, BOOL isDegraded) {
+        self->_cover = photo;
+    }];
+    [[TZImageManager manager] getVideoWithAsset:self.model.asset completion:^(AVPlayerItem *playerItem, NSDictionary *info) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            self->_player = [AVPlayer playerWithPlayerItem:playerItem];
+            self->_playerLayer = [AVPlayerLayer playerLayerWithPlayer:self->_player];
+            self->_playerLayer.backgroundColor = [UIColor blackColor].CGColor;
+            self->_playerLayer.frame = self.bounds;
+            [self.layer addSublayer:self->_playerLayer];
+            [self configPlayButton];
+            [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(pausePlayerAndShowNaviBar) name:AVPlayerItemDidPlayToEndTimeNotification object:self->_player.currentItem];
+        });
+    }];
 }
 
 - (void)layoutSubviews {
@@ -419,17 +400,7 @@
 }
 
 - (void)photoPreviewCollectionViewDidScroll {
-    if (_player && _player.rate != 0.0) {
-        [self pausePlayerAndShowNaviBar];
-    }
-}
-
-#pragma mark - Notification
-
-- (void)appWillResignActiveNotification {
-    if (_player && _player.rate != 0.0) {
-        [self pausePlayerAndShowNaviBar];
-    }
+    [self pausePlayerAndShowNaviBar];
 }
 
 #pragma mark - Click Event
@@ -441,7 +412,7 @@
         if (currentTime.value == durationTime.value) [_player.currentItem seekToTime:CMTimeMake(0, 1)];
         [_player play];
         [_playButton setImage:nil forState:UIControlStateNormal];
-        [UIApplication sharedApplication].statusBarHidden = YES;
+        if (iOS7Later) [UIApplication sharedApplication].statusBarHidden = YES;
         if (self.singleTapGestureBlock) {
             self.singleTapGestureBlock();
         }
@@ -451,10 +422,12 @@
 }
 
 - (void)pausePlayerAndShowNaviBar {
-    [_player pause];
-    [_playButton setImage:[UIImage tz_imageNamedFromMyBundle:@"MMVideoPreviewPlay"] forState:UIControlStateNormal];
-    if (self.singleTapGestureBlock) {
-        self.singleTapGestureBlock();
+    if (_player.rate != 0.0) {
+        [_player pause];
+        [_playButton setImage:[UIImage imageNamedFromMyBundle:@"MMVideoPreviewPlay"] forState:UIControlStateNormal];
+        if (self.singleTapGestureBlock) {
+            self.singleTapGestureBlock();
+        }
     }
 }
 
