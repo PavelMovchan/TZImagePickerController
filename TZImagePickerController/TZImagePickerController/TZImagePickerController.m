@@ -681,7 +681,7 @@
     
     _HUDContainer.frame = CGRectMake((self.view.tz_width - 120) / 2, (self.view.tz_height - 90) / 2, 120, 90);
     _HUDIndicatorView.frame = CGRectMake(45, 15, 30, 30);
-    _HUDLabel.frame = CGRectMake(0,40, 120, 50);    
+    _HUDLabel.frame = CGRectMake(0,40, 120, 50);
 }
 
 #pragma mark - Public
@@ -752,7 +752,7 @@
         [imagePickerVc showProgressHUD];
     }
 
-    dispatch_async(dispatch_get_global_queue(0, 0), ^{
+     dispatch_async(dispatch_get_main_queue(), ^{
         TZImagePickerController *imagePickerVc = (TZImagePickerController *)self.navigationController;
         [[TZImageManager manager] getAllAlbums:imagePickerVc.allowPickingVideo allowPickingImage:imagePickerVc.allowPickingImage needFetchAssets:!self.isFirstAppear completion:^(NSArray<TZAlbumModel *> *models) {
             dispatch_async(dispatch_get_main_queue(), ^{
