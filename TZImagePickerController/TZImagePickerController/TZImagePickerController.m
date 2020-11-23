@@ -295,8 +295,21 @@
 
 -(void)configureWithImages:(NSDictionary*)images
 {
-    _photoOriginSelImage = [images objectForKey:@"photo_original_sel"];
-    _photoSelImage = [images objectForKey:@"photo_sel_photoPickerVc"];
+    if ([images objectForKey:@"photo_original_sel"]) {
+        _photoOriginSelImage = [images objectForKey:@"photo_original_sel"];
+    }
+    
+    if ([images objectForKey:@"photo_sel_photoPickerVc"]) {
+        _photoSelImage = [images objectForKey:@"photo_sel_photoPickerVc"];
+    }
+    
+    if ([images objectForKey:@"preview_original_def"]) {
+        _photoPreviewOriginDefImage = [images objectForKey:@"preview_original_def"];
+    }
+    
+    if ([images objectForKey:@"photo_def_photoPickerVc"]) {
+        _photoDefImage = [images objectForKey:@"photo_def_photoPickerVc"];
+    }
 }
 
 - (void)setTakePictureImageName:(NSString *)takePictureImageName {
