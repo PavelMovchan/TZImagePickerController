@@ -4,7 +4,7 @@
 //
 //  Created by 谭真 on 15/12/24.
 //  Copyright © 2015年 谭真. All rights reserved.
-//  version 3.5.7 - 2020.12.04
+//  version 3.5.1 - 2020.10.29
 //  更多信息，请前往项目的github地址：https://github.com/banchichen/TZImagePickerController
 
 /*
@@ -67,8 +67,8 @@
 /// Default is 600px / 默认600像素宽
 @property (nonatomic, assign) CGFloat photoPreviewMaxWidth;
 
-/// Default is 30, While fetching photo, HUD will dismiss automatic if timeout;
-/// 超时时间，默认为30秒，当取图片时间超过30秒还没有取成功时，会自动dismiss HUD；
+/// Default is 15, While fetching photo, HUD will dismiss automatic if timeout;
+/// 超时时间，默认为15秒，当取图片时间超过15秒还没有取成功时，会自动dismiss HUD；
 @property (nonatomic, assign) NSInteger timeout;
 
 /// Default is YES, if set NO, the original photo button will hide. user can't picking original photo.
@@ -146,7 +146,7 @@
 @property (nonatomic, strong) NSMutableArray *selectedAssetIds;
 - (void)addSelectedModel:(TZAssetModel *)model;
 - (void)removeSelectedModel:(TZAssetModel *)model;
-
+-(void)configureWithImages:(NSDictionary*)images;
 /// Minimum selectable photo width, Default is 0
 /// 最小可选中的图片宽度，默认是0，小于这个宽度的图片不可选中
 @property (nonatomic, assign) NSInteger minPhotoWidthSelectable;
@@ -287,12 +287,7 @@
 
 // Decide asset show or not't
 // 决定照片显示与否
-- (BOOL)isAssetCanSelect:(PHAsset *)asset __attribute__((deprecated("Use -isAssetCanBeDisplayed:.")));
-- (BOOL)isAssetCanBeDisplayed:(PHAsset *)asset;
-
-// Decide asset can be selected
-// 决定照片能否被选中
-- (BOOL)isAssetCanBeSelected:(PHAsset *)asset;
+- (BOOL)isAssetCanSelect:(PHAsset *)asset;
 @end
 
 
